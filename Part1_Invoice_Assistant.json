@@ -1,0 +1,413 @@
+{
+  "name": "Part 1 - Invoice Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "id": "9bd0f945-492e-4193-a693-da99d8bf18b1",
+      "name": "Telegram Trigger",
+      "webhookId": "f6680922-c936-42d1-8c69-80541be9959d",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LurG1QASoq6xF6C",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.message.document.file_id }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        224,
+        0
+      ],
+      "id": "abb20a89-d2d6-4700-8f8a-c5355059314a",
+      "name": "Get a file",
+      "webhookId": "4313732d-faa8-4ed0-8058-8dc5ad9ea20a",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LurG1QASoq6xF6C",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "document",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.1-flash-lite",
+          "mode": "list",
+          "cachedResultName": "Gemini 3.1 Flash Lite"
+        },
+        "text": "You are an invoice data extraction assistant. Read the attached invoice or receipt and return ONLY a valid JSON object, with no markdown and no explanation, using exactly these keys:\n\ndate (format YYYY-MM-DD, or null)\nvendor\ninvoice_number\ndescription\namount (number: the final total including tax, no thousands separators)\ncurrency (ISO code such as USD, EUR, EGP)\ntax (number, or null)\ncategory\n\ncategory must be exactly one of: personnel, travel, equipment, software, events, operational.\nIf a field is not present in the document, use null. Never guess missing values.",
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "b97fa8e2-c089-4608-9cf5-856910217569",
+      "name": "Analyze document",
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "sfCT4X5zG7AYslq5",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.content?.parts?.[0]?.text ?? $json.text ?? '';\nlet d;\ntry {\n  d = JSON.parse(raw.replace(/```json|```/g, '').trim());\n} catch (e) {\n  return { json: { status: 'NEEDS REVIEW', notes: 'Could not parse AI output', processed_at: new Date().toISOString() } };\n}\n\nconst categories = ['personnel', 'travel', 'equipment', 'software', 'events', 'operational'];\nconst issues = [];\n\nfor (const f of ['date', 'vendor', 'invoice_number', 'description', 'amount', 'currency']) {\n  if (d[f] === null || d[f] === undefined || d[f] === '') issues.push('Missing ' + f);\n}\nif (d.amount != null && (typeof d.amount !== 'number' || d.amount <= 0)) issues.push('Invalid amount');\nif (d.date) {\n  const t = new Date(d.date);\n  if (isNaN(t) || t > new Date()) issues.push('Invalid or future date');\n}\nif (!categories.includes(d.category)) issues.push('Unknown category');\n\nreturn {\n  json: {\n    date: d.date,\n    vendor: d.vendor,\n    invoice_number: d.invoice_number,\n    description: d.description,\n    amount: d.amount,\n    currency: d.currency,\n    tax: d.tax,\n    category: d.category,\n    status: issues.length ? 'NEEDS REVIEW' : 'OK',\n    notes: issues.join('; '),\n    processed_at: new Date().toISOString()\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "61e1add4-156a-4914-937e-7b6fb5a0ba55",
+      "name": "Parse and Validate"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Kae3HeWFrjtREp04Ya8PxXtYmD39YkfIygKqCNSSd5E",
+          "mode": "list",
+          "cachedResultName": "Expense Tracker",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kae3HeWFrjtREp04Ya8PxXtYmD39YkfIygKqCNSSd5E/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "الورقة1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kae3HeWFrjtREp04Ya8PxXtYmD39YkfIygKqCNSSd5E/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        896,
+        0
+      ],
+      "id": "9c13a459-537f-444a-98fa-f333a3f6e8ac",
+      "name": "Get row(s) in sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "bSnvbSFAokRABbMG",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const inv = $('Parse and Validate').first().json;\nconst rows = $input.all().map(i => i.json).filter(r => r.vendor);\n\nconst norm = v => String(v ?? '').trim().toLowerCase();\nconst num = v => Number(String(v ?? '').replace(/,/g, ''));\n\nconst dup = rows.find(r =>\n  norm(r.vendor) === norm(inv.vendor) && (\n    (inv.invoice_number && norm(r.invoice_number) === norm(inv.invoice_number)) ||\n    (inv.date && num(r.amount) === num(inv.amount) &&\n     norm(r.date) === norm(inv.date) &&\n     norm(r.currency) === norm(inv.currency))\n  )\n);\n\nlet status = inv.status;\nlet notes = inv.notes;\nif (dup) {\n  status = 'DUPLICATE';\n  notes = (notes ? notes + '; ' : '') +\n    'Possible duplicate of invoice ' + (dup.invoice_number || 'N/A') + ' (' + dup.date + ')';\n}\n\nreturn [{ json: { ...inv, status, notes } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "d022e75f-697a-4d55-befc-003bed556248",
+      "name": "Check Duplicate"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Kae3HeWFrjtREp04Ya8PxXtYmD39YkfIygKqCNSSd5E",
+          "mode": "list",
+          "cachedResultName": "Expense Tracker",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kae3HeWFrjtREp04Ya8PxXtYmD39YkfIygKqCNSSd5E/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "الورقة1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kae3HeWFrjtREp04Ya8PxXtYmD39YkfIygKqCNSSd5E/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "vendor",
+              "displayName": "vendor",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "invoice_number",
+              "displayName": "invoice_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tax",
+              "displayName": "tax",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "processed_at",
+              "displayName": "processed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1344,
+        0
+      ],
+      "id": "17b5b66b-b11b-42f4-a347-46e4c7fec854",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "bSnvbSFAokRABbMG",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "=Invoice processed Status: {{ $json.status }} Vendor: {{ $json.vendor }} Invoice no: {{ $json.invoice_number }} Amount: {{ $json.amount }} {{ $json.currency }} Category: {{ $json.category }} Notes: {{ $json.notes }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1568,
+        0
+      ],
+      "id": "96fbaa9f-3b52-48ea-8a06-bccb079236ac",
+      "name": "Send a text message",
+      "webhookId": "b8500f35-d5e6-4fa6-af4a-7896be76e9c2",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LurG1QASoq6xF6C",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get a file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a file": {
+      "main": [
+        [
+          {
+            "node": "Analyze document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze document": {
+      "main": [
+        [
+          {
+            "node": "Parse and Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Validate": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Check Duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Duplicate": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "58792ab3-78f9-489f-8665-687ac1397333",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "26a5ba646c57999c209948ff9549405be00ed5c7ba81481e113bcb073e9b726c"
+  },
+  "nodeGroups": [],
+  "id": "35grctmDp4IUVAX7",
+  "tags": []
+}

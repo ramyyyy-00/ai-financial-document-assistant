@@ -1,0 +1,269 @@
+{
+  "name": "Part 1B - Expense Summary",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "523edcef-040c-4822-9643-58b657d592b7",
+      "name": "Run Summary",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Kae3HeWFrjtREp04Ya8PxXtYmD39YkfIygKqCNSSd5E",
+          "mode": "list",
+          "cachedResultName": "Expense Tracker",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kae3HeWFrjtREp04Ya8PxXtYmD39YkfIygKqCNSSd5E/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Expenses",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kae3HeWFrjtREp04Ya8PxXtYmD39YkfIygKqCNSSd5E/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "c9108f46-9b73-404e-bfd2-549be6972df5",
+      "name": "Read Expenses",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "bSnvbSFAokRABbMG",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const num = v => Number(String(v ?? '').replace(/,/g, '')) || 0;\n// Only validated invoices (status OK) are counted. Duplicates and items needing review are excluded.\nconst rows = $input.all().map(i => i.json).filter(r => r.vendor && String(r.status).toUpperCase() === 'OK');\nconst groups = {};\nfor (const r of rows) {\n  const category = r.category || 'uncategorized';\n  const currency = r.currency || 'N/A';\n  const key = category + '|' + currency;\n  if (!groups[key]) groups[key] = { category, currency, invoice_count: 0, total_amount: 0, total_tax: 0 };\n  groups[key].invoice_count += 1;\n  groups[key].total_amount += num(r.amount);\n  groups[key].total_tax += num(r.tax);\n}\nconst now = new Date().toISOString();\nconst items = Object.values(groups)\n  .sort((a, b) => a.category.localeCompare(b.category) || a.currency.localeCompare(b.currency))\n  .map(g => ({ json: { generated_at: now, category: g.category, currency: g.currency,\n    invoice_count: g.invoice_count, total_amount: Math.round(g.total_amount * 100) / 100,\n    total_tax: Math.round(g.total_tax * 100) / 100 } }));\nif (items.length === 0) return [{ json: { generated_at: now, category: 'no valid invoices', currency: '', invoice_count: 0, total_amount: 0, total_tax: 0 } }];\nreturn items;"
+      },
+      "id": "ebcc3e46-bfc6-4507-8f22-596206f42c68",
+      "name": "Group by Category and Currency",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Kae3HeWFrjtREp04Ya8PxXtYmD39YkfIygKqCNSSd5E",
+          "mode": "list",
+          "cachedResultName": "Expense Tracker",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kae3HeWFrjtREp04Ya8PxXtYmD39YkfIygKqCNSSd5E/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1667409415,
+          "mode": "list",
+          "cachedResultName": "Summary",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kae3HeWFrjtREp04Ya8PxXtYmD39YkfIygKqCNSSd5E/edit#gid=1667409415"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "generated_at",
+              "displayName": "generated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_count",
+              "displayName": "invoice_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_amount",
+              "displayName": "total_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_tax",
+              "displayName": "total_tax",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "18268f7e-c161-494e-9dfb-3cb141f489c1",
+      "name": "Write to Summary",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "bSnvbSFAokRABbMG",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\nconst lines = rows.map(r => `${r.category} (${r.currency}): ${r.total_amount} from ${r.invoice_count} invoice(s), tax ${r.total_tax}`);\nreturn [{ json: { text: 'Expense summary (valid invoices only)\\n' + lines.join('\\n') } }];"
+      },
+      "id": "a05b262b-2e39-46b8-aa14-a091a4128954",
+      "name": "Build Summary Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_CHAT_ID",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "0e21b846-e52b-4bee-93de-9195d45fb475",
+      "name": "Send Summary",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1104,
+        0
+      ],
+      "webhookId": "dec40282-8114-4255-af3a-7d8cc60fc156",
+      "credentials": {
+        "telegramApi": {
+          "id": "0LurG1QASoq6xF6C",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run Summary": {
+      "main": [
+        [
+          {
+            "node": "Read Expenses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Expenses": {
+      "main": [
+        [
+          {
+            "node": "Group by Category and Currency",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group by Category and Currency": {
+      "main": [
+        [
+          {
+            "node": "Write to Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write to Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Summary Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary Message": {
+      "main": [
+        [
+          {
+            "node": "Send Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "a35909db-df19-44f4-b598-69422b26895b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "26a5ba646c57999c209948ff9549405be00ed5c7ba81481e113bcb073e9b726c"
+  },
+  "nodeGroups": [],
+  "id": "qhq0APFZdF8PJSV7",
+  "tags": []
+}
